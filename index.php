@@ -59,7 +59,7 @@ class BinaryLogicCaptcha {
         ],
         [
             'question' => 'Parity bit (even) for 1101001:',
-            'answer' => '1',
+            'answer' => '0',
             'operation' => 'PARITY'
         ]
     ];
