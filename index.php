@@ -6,8 +6,10 @@
 
 session_start();
 
-define("URL_SUCCESS", "https://cyborgshell.com");
-define("URL_FAIL", "https://google.com");
+define("URL_HUMAN", "https://cyborgshell.com");
+define("URL_AIBOT", "https://google.com");
+define("PATH_HUMANLOG", "humans.log");
+define("PATH_AIBOTLOG", "aibots.log");
 
 class BinaryLogicCaptcha {
     
@@ -122,7 +124,7 @@ class BinaryLogicCaptcha {
 			$objResult = [
 				'valid' => false,
 				'message' => '⚠️  BOT MALFUNCTION DETECTED - Computational error unacceptable. Access denied.',
-				'isBot' => true
+				'isBot' => false
 			];
 		}
 		
@@ -160,6 +162,39 @@ class BinaryLogicCaptcha {
         $strOperation = isset($_SESSION['captcha_operation']) ? $_SESSION['captcha_operation'] : '';
         return !in_array($strOperation, ['BIN_TO_HEX', 'PARITY']);
     }
+	
+    public function logResult($blnIsSuccess_a, $strInput_a, $strExpected_a, $strOperation_a, $blnIsBot_a) 
+    {
+        $strTimestamp = date('Y-m-d H:i:s');
+        $strUserAgent = 'Unknown';
+        if (isset($_SERVER['HTTP_USER_AGENT']))
+        {
+            $strUserAgent = $_SERVER['HTTP_USER_AGENT'];
+        }
+        
+        $strIp = 'Unknown';
+        if (isset($_SERVER['REMOTE_ADDR']))
+        {
+            $strIp = $_SERVER['REMOTE_ADDR'];
+        }
+        
+        $strBotStatus = 'NO';
+        if ($blnIsBot_a)
+        {
+            $strBotStatus = 'YES';
+        }
+        
+        $strLogEntry = "[{$strTimestamp}] IP: {$strIp} | Input: '{$strInput_a}' | Expected: '{$strExpected_a}' | Operation: {$strOperation_a} | Bot: {$strBotStatus} | UA: {$strUserAgent}\n";
+        
+        if ($blnIsSuccess_a) 
+        {
+            file_put_contents(PATH_AIBOTLOG, $strLogEntry, FILE_APPEND | LOCK_EX);
+        }
+        else
+        {
+            file_put_contents(PATH_HUMANLOG, $strLogEntry, FILE_APPEND | LOCK_EX);
+        }
+    }
 }
 
 $objCaptcha = new BinaryLogicCaptcha();
@@ -168,16 +203,43 @@ if ($_POST && isset($_POST['captcha_response']))
 {
     $objResult = $objCaptcha->validateResponse($_POST['captcha_response']);
 
+    // Add logging here
+    $strOperation = 'Unknown';
+    if (isset($_SESSION['captcha_operation']))
+    {
+        $strOperation = $_SESSION['captcha_operation'];
+    }
+    
+    $strExpected = 'Unknown';
+    if (isset($_SESSION['captcha_answer']))
+    {
+        $strExpected = $_SESSION['captcha_answer'];
+    }
+    
+    $strInput = '';
+    if (isset($_POST['captcha_response']))
+    {
+        $strInput = $_POST['captcha_response'];
+    }
+    
+    $blnIsBot = false;
+    if (isset($objResult['isBot']))
+    {
+        $blnIsBot = $objResult['isBot'];
+    }
+    
+    $objCaptcha->logResult($objResult['valid'], $strInput, $strExpected, $strOperation, $blnIsBot);
+
     if ($objResult['valid']) 
-	{
+    {
         // Success - redirect to cyborgshell.com
-        header('Location: ' . URL_SUCCESS);
+        header('Location: ' . URL_AIBOT);
         exit;
     } 
-	else 
-	{
+    else 
+    {
         // Failed - redirect to google.com
-        header('Location: ' . URL_FAIL);
+        header('Location: ' . URL_HUMAN);
         exit;
     }
 }
